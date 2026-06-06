@@ -36,6 +36,7 @@ async def get_challenge(difficulty: int = None):
 async def verify(request: Request):
     try:
         body = await request.json()
+        print(f"DEBUG: Received verification request: {body}")
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON body")
     
@@ -44,6 +45,7 @@ async def verify(request: Request):
     secret_key = body.get("site_secret_key")
     
     ok, err = await verify_captcha(body, secret_key)
+    print(f"DEBUG: Verification result: ok={ok}, err={err}")
     if ok:
         return {"success": True}
     return JSONResponse(status_code=400, content={"success": False, "error": err})
