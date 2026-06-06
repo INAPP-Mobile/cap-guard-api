@@ -40,11 +40,9 @@ async def verify_cap(token: str, secret_key: Optional[str] = None) -> bool:
     return False
 
 def verify_honeypot(data: dict) -> bool:
-    # A honeypot is "successful" (human) only if the field is NOT present 
-    # OR if it is present but empty.
-    # However, the bug was that it returned True too easily.
-    # We should only ever return True for honeypot if it's the intended check.
-    return data.get("_hp_website") == ""
+    # The field MUST be present and it MUST be an empty string.
+    # If the field is missing (None), it's not a valid honeypot verification.
+    return "_hp_website" in data and data["_hp_website"] == ""
 
 async def verify_captcha(data: dict, cap_secret_key: Optional[str] = None) -> tuple[bool, Optional[str]]:
     # 1. Prioritize Cap Tokens (Strongest proof)
