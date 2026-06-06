@@ -40,38 +40,44 @@ async def verify_cap(token: str, secret_key: Optional[str] = None) -> bool:
     return False
 
 def verify_honeypot(data: dict) -> bool:
-    hp = data.get("_hp_website", "")
-    return hp == ""
+    # A honeypot is "successful" (human) only if the field is NOT present 
+    # OR if it is present but empty.
+    # However, the bug was that it returned True too easily.
+    # We should only ever return True for honeypot if it's the intended check.
+    return data.get("_hp_website") == ""
 
 async def verify_captcha(data: dict, cap_secret_key: Optional[str] = None) -> tuple[bool, Optional[str]]:
-    # This is a simplified version of the logic from railway-form-template
-    # It attempts to verify based on provided fields
-    
+    # 1. Prioritize Cap Tokens (Strongest proof)
     cap_token = data.get("cap_token", data.get("cap-token", ""))
     if cap_token and settings.cap_endpoint and (cap_secret_key or settings.cap_secret_key):
         ok = await verify_cap(cap_token, cap_secret_key)
         if ok:
             return True, None
 
-    if verify_honeypot(data):
-        # Note: Honeypot is positive if EMPTY. 
-        # In a real-world consolidated verify, we might need a flag to know if it's the only check.
-        # For a dedicated API, we can treat a valid honeypot as a fallback "success" 
-        # if nothing else matches, or provide separate endpoints.
-        # Let's stick to the logic: if honeypot field is empty, it's "human-like" behavior.
-        return True, None
+    # 2. Check PoW (Explicit computational proof)
+    secret = data.get("pow_secret")
+    nonce_str = data.get("pow_nonce")
+    difficulty_str = data.get("pow_difficulty")
+    
+    if secret and nonce_str and difficulty_str:
+        try:
+            nonce = int(nonce_str)
+            difficulty = int(difficulty_str)
+            if _verify_pow(secret, nonce, difficulty):
+                return True, None
+        except (ValueError, TypeError):
+            pass
 
-    # PoW check
-    secret = data.get("pow_secret", "")
-    nonce_str = data.get("pow_nonce", "0")
-    difficulty_str = data.get("pow_difficulty", "4")
-    try:
-        nonce = int(nonce_str)
-        difficulty = int(difficulty_str)
-    except (ValueError, TypeError):
-        pass
-    else:
-        if _verify_pow(secret, nonce, difficulty):
+    # 3. Honeypot (Fallback/Weakest proof)
+    # Only verify honeypot if NO other specialized proof was attempted 
+    # or if it is the only thing provided.
+    if verify_honeypot(data):
+        # If the user provided a cap_token or pow_secret that failed, 
+        # we should NOT let them pass just because the honeypot is empty.
+        has_cap = bool(cap_token)
+        has_pow = bool(secret and nonce_str)
+        
+        if not has_cap and not has_pow:
             return True, None
 
     return False, "Verification failed: No valid human proof provided"
