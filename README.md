@@ -1,4 +1,4 @@
-# Cap CAPTCHA Template
+# Cap-Guard API
 
 Standalone CAPTCHA service for web forms, providing Proof-of-Work (PoW), Honeypot, and Proxy services for external CAPTCHA providers.
 
