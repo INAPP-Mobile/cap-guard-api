@@ -20,6 +20,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/version")
+async def get_version():
+    return {"version": "1.0.2-strict", "deployed": True}
+
 @app.get("/health")
 async def health():
     return {"status": "healthy"}
